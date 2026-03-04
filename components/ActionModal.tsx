@@ -15,6 +15,7 @@ interface CartItem {
   itemId: string;
   quantity: number;
   price: number;
+  newSellingPrice?: number;
   isNew?: boolean;
   newItemData?: {
       name: string;
@@ -107,6 +108,7 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
         itemId: defaultItem?.id || '', 
         quantity: 1, 
         price: defaultPrice,
+        newSellingPrice: defaultItem?.sellingPrice,
         isNew: false 
       }]);
       
@@ -138,7 +140,13 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
     const defaultId = defaultItem?.id || '';
     const defaultPrice = defaultItem ? getTransactionPrice(defaultItem) : 0;
     
-    setCartItems([...cartItems, { itemId: defaultId, quantity: 1, price: defaultPrice, isNew: false }]);
+    setCartItems([...cartItems, { 
+        itemId: defaultId, 
+        quantity: 1, 
+        price: defaultPrice, 
+        newSellingPrice: defaultItem?.sellingPrice,
+        isNew: false 
+    }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -159,7 +167,8 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
       newItems[index] = { 
         ...newItems[index], 
         itemId: String(value), 
-        price: newPrice 
+        price: newPrice,
+        newSellingPrice: item?.sellingPrice
       };
     } else {
       // @ts-ignore
@@ -184,12 +193,16 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
         setPoNumber(lpo.lpoNumber);
         setSupplierName(lpo.supplierName);
         
-        const newItems = lpo.items.map(item => ({
-            itemId: item.itemId,
-            quantity: item.quantity,
-            price: item.unitCost,
-            isNew: false
-        }));
+        const newItems = lpo.items.map(item => {
+            const invItem = inventory.find(i => i.id === item.itemId);
+            return {
+                itemId: item.itemId,
+                quantity: item.quantity,
+                price: item.unitCost,
+                newSellingPrice: invItem?.sellingPrice,
+                isNew: false
+            };
+        });
         
         if (newItems.length > 0) {
             setCartItems(newItems);
@@ -226,7 +239,8 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
             itemId: defaultItem?.id || '',
             isNew: false,
             newItemData: undefined,
-            price: defaultItem ? getTransactionPrice(defaultItem) : 0
+            price: defaultItem ? getTransactionPrice(defaultItem) : 0,
+            newSellingPrice: defaultItem?.sellingPrice
         };
     }
     setCartItems(newItems);
@@ -524,6 +538,23 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
                                     className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-primary focus:border-primary text-sm py-2 px-2"
                                 />
                             </div>
+
+                            {/* New Selling Price Field for Deliveries */}
+                            {type === 'DELIVERY' && !cartItem.isNew && (
+                                <div className="flex-1">
+                                    <label className="text-[10px] text-emerald-500 font-bold uppercase mb-0.5 block">
+                                        Selling Price
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        value={cartItem.newSellingPrice || 0}
+                                        onChange={(e) => handleItemChange(index, 'newSellingPrice', parseFloat(e.target.value) || 0)}
+                                        className="w-full rounded-lg border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-slate-900 dark:text-white focus:ring-emerald-500 focus:border-emerald-500 text-sm py-2 px-2"
+                                    />
+                                </div>
+                            )}
+
                             <div className="w-24">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase mb-0.5 block">Qty</label>
                                 <input 

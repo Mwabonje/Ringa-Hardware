@@ -176,7 +176,7 @@ function App() {
   };
 
   // Handle Actions (Sale, Delivery, Return, LPO Creation)
-  const handleAction = async (items: { itemId: string; quantity: number; price: number }[], notes: string, meta?: any) => {
+  const handleAction = async (items: { itemId: string; quantity: number; price: number; newSellingPrice?: number }[], notes: string, meta?: any) => {
     // Generate Timestamp ID for the entire batch
     const transactionId = Date.now().toString();
     const shortId = transactionId.slice(-6);
@@ -289,6 +289,14 @@ function App() {
 
       if (modalState.type === 'DELIVERY') {
         newStockLevel += cartItem.quantity;
+        
+        // Update Buying Price (Cost) to the new incoming price
+        item.buyingPrice = cartItem.price;
+
+        // Update Selling Price if provided
+        if (cartItem.newSellingPrice) {
+            item.sellingPrice = cartItem.newSellingPrice;
+        }
       } else if (modalState.type === 'SALE') {
         newStockLevel = Math.max(0, newStockLevel - cartItem.quantity);
         
