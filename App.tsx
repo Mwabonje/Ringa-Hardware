@@ -13,6 +13,7 @@ import LPOModal from './components/LPOModal';
 import ReturnPreviewModal from './components/ReturnPreviewModal';
 import DeliveryPreviewModal from './components/DeliveryPreviewModal';
 import Login from './components/Login';
+import Reports from './components/Reports';
 import { InventoryItem, ActivityItem, ReceiptData, ReceiptItem, DailyStats, LPO } from './types';
 import * as DB from './db';
 
@@ -602,13 +603,12 @@ function App() {
          );
       case 'Reports':
         return (
-           <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400 animate-in fade-in duration-500">
-              <div className="size-24 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-6">
-                 <BarChart3 size={40} className="text-slate-300 dark:text-slate-600" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-600 dark:text-slate-300">Analytics & Reports</h2>
-              <p className="text-sm mt-2">This module is currently under development.</p>
-           </div>
+           <Reports 
+              activities={activities} 
+              inventory={inventory} 
+              lpos={lpos} 
+              stats={dailyStats} 
+           />
         );
       case 'Dashboard':
       default:
