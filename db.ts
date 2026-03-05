@@ -121,7 +121,7 @@ export const getUsers = async () => {
 };
 
 export const getUserByUsername = async (username: string) => {
-  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  const db = await initDB();
   return db.getFromIndex('users', 'by-username', username);
 };
 
