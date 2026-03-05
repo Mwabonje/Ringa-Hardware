@@ -5,9 +5,12 @@ import { Role } from '../types';
 interface QuickActionsProps {
   onAction: (type: 'DELIVERY' | 'SALE' | 'RETURN' | 'LPO') => void;
   userRole?: Role;
+  canMakeSales?: boolean;
 }
 
-const QuickActions: React.FC<QuickActionsProps> = ({ onAction, userRole }) => {
+const QuickActions: React.FC<QuickActionsProps> = ({ onAction, userRole, canMakeSales }) => {
+  const isRestrictedRole = userRole === 'CASHIER' || userRole === 'ADMIN';
+  const salesDisabled = isRestrictedRole && canMakeSales === false;
   const isCashier = userRole === 'CASHIER';
 
   return (
@@ -19,16 +22,27 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onAction, userRole }) => {
       <div className="grid grid-cols-1 gap-3">
         <button 
           onClick={() => onAction('SALE')}
-          className="flex items-center gap-4 p-4 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 group text-left"
+          className={`flex items-center gap-4 p-4 rounded-xl transition-all shadow-lg text-left group ${
+            salesDisabled 
+              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none' 
+              : 'bg-primary text-white hover:bg-primary/90 shadow-primary/20'
+          }`}
+          title={salesDisabled ? "Sales are restricted for your account" : "New Sale"}
         >
-          <div className="size-10 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className={`size-10 rounded-lg flex items-center justify-center transition-transform ${
+            salesDisabled 
+              ? 'bg-slate-200 dark:bg-slate-700 text-slate-500' 
+              : 'bg-white/20 group-hover:scale-110'
+          }`}>
             <ShoppingCart size={20} />
           </div>
           <div className="flex-1">
             <p className="font-bold">New Sale</p>
-            <p className="text-xs text-blue-100">Record customer transaction</p>
+            <p className={`text-xs ${salesDisabled ? 'text-slate-400' : 'text-blue-100'}`}>
+              {salesDisabled ? 'Access Restricted' : 'Record customer transaction'}
+            </p>
           </div>
-          <ChevronRight className="ml-auto text-blue-200" size={20} />
+          {!salesDisabled && <ChevronRight className="ml-auto text-blue-200" size={20} />}
         </button>
 
         {!isCashier && (

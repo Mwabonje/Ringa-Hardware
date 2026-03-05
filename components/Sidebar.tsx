@@ -11,7 +11,8 @@ import {
   X,
   RotateCcw,
   LogOut,
-  Users
+  Users,
+  Mail
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -22,9 +23,10 @@ interface SidebarProps {
   onClose: () => void;
   onLogout: () => void;
   currentUser: User;
+  unreadMessageCount: number;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClose, onLogout, currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClose, onLogout, currentUser, unreadMessageCount }) => {
   const navItems = [
     { id: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'Inventory', icon: Package, label: 'Inventory' },
@@ -33,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
     { id: 'Deliveries', icon: Truck, label: 'Deliveries' },
     { id: 'Returns', icon: RotateCcw, label: 'Customer Returns' },
     { id: 'Reports', icon: BarChart3, label: 'Reports' },
+    { id: 'Messages', icon: Mail, label: 'Messages', badge: unreadMessageCount > 0 ? unreadMessageCount : undefined },
   ];
 
   // Filter items based on role
@@ -40,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
   
   if (currentUser.role === 'CASHIER') {
     filteredNavItems = navItems.filter(item => 
-      ['Dashboard', 'Inventory', 'Returns'].includes(item.id)
+      ['Dashboard', 'Inventory', 'Returns', 'Messages'].includes(item.id)
     );
   }
 
@@ -98,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative ${
                   isActive 
                     ? 'bg-primary text-white shadow-md shadow-primary/10' 
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -106,6 +109,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
               >
                 <item.icon size={20} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
                 <span className="text-sm font-medium">{item.label}</span>
+                {item.badge && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}

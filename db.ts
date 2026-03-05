@@ -1,5 +1,5 @@
 import { openDB, DBSchema } from 'idb';
-import { InventoryItem, ActivityItem, LPO, DailyStats, User } from './types';
+import { InventoryItem, ActivityItem, LPO, DailyStats, User, SystemSettings, Message } from './types';
 import { INVENTORY_DATA } from './constants';
 
 interface RingaDB extends DBSchema {
@@ -24,11 +24,20 @@ interface RingaDB extends DBSchema {
     value: User;
     indexes: { 'by-username': string };
   };
+  settings: {
+    key: string;
+    value: SystemSettings;
+  };
+  messages: {
+    key: string;
+    value: Message;
+    indexes: { 'by-recipient': string };
+  };
 }
 
 // Changed to v3 to ensure schema update for users
 const DB_NAME = 'ringa-hardware-v3';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 
 export const initDB = async () => {
   const db = await openDB<RingaDB>(DB_NAME, DB_VERSION, {
@@ -48,6 +57,13 @@ export const initDB = async () => {
       if (!db.objectStoreNames.contains('users')) {
         const userStore = db.createObjectStore('users', { keyPath: 'id' });
         userStore.createIndex('by-username', 'username', { unique: true });
+      }
+      if (!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('messages')) {
+        const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
+        messageStore.createIndex('by-recipient', 'recipientId');
       }
     },
   });
@@ -154,6 +170,11 @@ export const addActivity = async (activity: ActivityItem) => {
   return db.add('activities', activity);
 };
 
+export const updateActivity = async (activity: ActivityItem) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.put('activities', activity);
+};
+
 export const addLPO = async (lpo: LPO) => {
   const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
   return db.add('lpos', lpo);
@@ -184,10 +205,55 @@ export const deleteUser = async (id: string) => {
   return db.delete('users', id);
 };
 
+export const getSystemSettings = async () => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  const settings = await db.get('settings', 'global');
+  return settings || { id: 'global', isSystemLocked: false };
+};
+
+export const updateSystemSettings = async (settings: SystemSettings) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.put('settings', { ...settings, id: 'global' });
+};
+
 // Batch update for inventory
 export const updateInventoryBatch = async (items: InventoryItem[]) => {
     const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
     const tx = db.transaction('inventory', 'readwrite');
     await Promise.all([...items.map(item => tx.store.put(item))]);
     await tx.done;
+};
+
+// --- MESSAGING ---
+
+export const sendMessage = async (message: Message) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.add('messages', message);
+};
+
+export const getMessagesForUser = async (userId: string, role: string) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  const allMessages = await db.getAll('messages');
+  
+  return allMessages.filter(msg => 
+    msg.recipientId === userId || 
+    (msg.recipientId === 'ADMIN' && role === 'ADMIN') ||
+    (msg.recipientId === 'ALL' && role !== 'SUPER_ADMIN')
+  ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};
+
+export const getSentMessages = async (userId: string) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  const allMessages = await db.getAll('messages');
+  return allMessages.filter(msg => msg.senderId === userId)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};
+
+export const markMessageAsRead = async (messageId: string) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  const message = await db.get('messages', messageId);
+  if (message) {
+    message.isRead = true;
+    await db.put('messages', message);
+  }
 };

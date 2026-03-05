@@ -12,11 +12,14 @@ import LPOList from './components/LPOList';
 import LPOModal from './components/LPOModal';
 import ReturnPreviewModal from './components/ReturnPreviewModal';
 import DeliveryPreviewModal from './components/DeliveryPreviewModal';
+import NoteModal from './components/NoteModal';
 import Login from './components/Login';
 import Reports from './components/Reports';
 import UserManagement from './components/UserManagement';
+import Messages from './components/Messages';
 import { InventoryItem, ActivityItem, ReceiptData, ReceiptItem, DailyStats, LPO, User } from './types';
 import * as DB from './db';
+import { MessageSquarePlus, AlertTriangle } from 'lucide-react';
 
 function App() {
   // App State - Initialize auth from localStorage
@@ -42,6 +45,14 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLowStockFilterActive, setIsLowStockFilterActive] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSystemLocked, setIsSystemLocked] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  
+  // Note Modal State
+  const [noteModalState, setNoteModalState] = useState<{
+    isOpen: boolean;
+    activity: ActivityItem | null;
+  }>({ isOpen: false, activity: null });
   
   // LPO Modal State
   const [lpoModalState, setLpoModalState] = useState<{
@@ -91,7 +102,8 @@ function App() {
     const newUser: User = {
       ...userData,
       id: Date.now().toString(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      canMakeSales: (userData.role === 'CASHIER' || userData.role === 'ADMIN') ? true : undefined
     };
     await DB.addUser(newUser);
     setUsers(prev => [...prev, newUser]);
@@ -101,6 +113,24 @@ function App() {
       id: Date.now().toString(),
       title: 'User Added',
       description: `New user ${newUser.username} (${newUser.role}) added by ${currentUser?.username}`,
+      timestamp: new Date().toISOString(),
+      type: 'LOG',
+      performedBy: currentUser?.username,
+      userRole: currentUser?.role
+    };
+    await DB.addActivity(activity);
+    setActivities(prev => [activity, ...prev]);
+  };
+
+  const handleUpdateUser = async (user: User) => {
+    await DB.updateUser(user);
+    setUsers(users.map(u => u.id === user.id ? user : u));
+
+    // Log activity
+    const activity: ActivityItem = {
+      id: Date.now().toString(),
+      title: 'User Updated',
+      description: `User ${user.username} updated by ${currentUser?.username}`,
       timestamp: new Date().toISOString(),
       type: 'LOG',
       performedBy: currentUser?.username,
@@ -131,6 +161,25 @@ function App() {
     }
   };
 
+  const handleToggleSystemLock = async () => {
+    const newLockState = !isSystemLocked;
+    await DB.updateSystemSettings({ id: 'global', isSystemLocked: newLockState });
+    setIsSystemLocked(newLockState);
+
+    // Log activity
+    const activity: ActivityItem = {
+        id: Date.now().toString(),
+        title: newLockState ? 'System Locked' : 'System Unlocked',
+        description: `System ${newLockState ? 'locked' : 'unlocked'} by Super Admin ${currentUser?.username}`,
+        timestamp: new Date().toISOString(),
+        type: 'LOG',
+        performedBy: currentUser?.username,
+        userRole: currentUser?.role
+    };
+    await DB.addActivity(activity);
+    setActivities(prev => [activity, ...prev]);
+  };
+
   // --- Data Loading ---
   useEffect(() => {
     if (currentUser) {
@@ -143,6 +192,26 @@ function App() {
                 setLpos(data.lpos);
                 setDailyStats(data.stats);
                 setUsers(data.users);
+
+                // Load System Settings
+                const settings = await DB.getSystemSettings();
+                setIsSystemLocked(settings.isSystemLocked);
+
+                // Sync current user with DB to get latest permissions
+                const dbUser = data.users.find(u => u.id === currentUser.id);
+                if (dbUser) {
+                    // Only update if there are changes to avoid unnecessary state updates
+                    if (JSON.stringify(dbUser) !== JSON.stringify(currentUser)) {
+                        setCurrentUser(dbUser);
+                        localStorage.setItem('ringa_user', JSON.stringify(dbUser));
+                    }
+                }
+
+                // Load Messages
+                const messages = await DB.getMessagesForUser(currentUser.id, currentUser.role);
+                const unread = messages.filter(m => !m.isRead).length;
+                setUnreadMessageCount(unread);
+
             } catch (error) {
                 console.error("Failed to load data from DB", error);
             } finally {
@@ -151,7 +220,7 @@ function App() {
         };
         loadData();
     }
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Filter Logic Helper
   const getFilteredData = (categoryFilter?: string) => {
@@ -501,6 +570,21 @@ function App() {
     }
   };
 
+  const handleSaveNote = async (note: string) => {
+    if (!noteModalState.activity) return;
+
+    const updatedActivity: ActivityItem = {
+      ...noteModalState.activity,
+      adminNote: note
+    };
+
+    await DB.updateActivity(updatedActivity);
+    
+    // Update local state
+    setActivities(prev => prev.map(a => a.id === updatedActivity.id ? updatedActivity : a));
+    setNoteModalState({ isOpen: false, activity: null });
+  };
+
   const renderContent = () => {
     // Filter activities based on user role
     const visibleActivities = activities.filter(activity => {
@@ -548,13 +632,60 @@ function App() {
                               <ShoppingCart size={20} />
                            </div>
                            <div className="min-w-0 flex-1">
-                              <p className="font-bold text-slate-900 dark:text-white truncate">{log.title}</p>
-                              <p className="text-sm text-slate-500 truncate">{log.description}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-bold text-slate-900 dark:text-white truncate">{log.title}</p>
+                                  {log.meta?.paymentMethod && (
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                                          log.meta.paymentMethod === 'MPESA' 
+                                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' 
+                                          : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                      }`}>
+                                          {log.meta.paymentMethod === 'MPESA' ? 'M-Pesa' : 'Cash'}
+                                      </span>
+                                  )}
+                                  {log.meta?.paymentMethod === 'MPESA' && log.meta?.mpesaCode && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 hidden sm:inline-flex">
+                                          {log.meta.mpesaCode}
+                                      </span>
+                                  )}
+                              </div>
+                              <p className="text-sm text-slate-500 truncate">
+                                {log.description}
+                                {log.performedBy && <span className="ml-2 text-xs text-slate-400">• by {log.performedBy}</span>}
+                              </p>
+                              {/* Mobile only M-Pesa code */}
+                              {log.meta?.paymentMethod === 'MPESA' && log.meta?.mpesaCode && (
+                                  <p className="text-xs font-mono text-slate-500 mt-1 sm:hidden">
+                                      Ref: {log.meta.mpesaCode}
+                                  </p>
+                              )}
+                              
+                              {/* Admin Note Display */}
+                              {log.adminNote && (
+                                  <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex gap-2 items-start">
+                                      <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                      <p className="text-xs text-amber-800 dark:text-amber-200 font-medium italic">
+                                          "{log.adminNote}"
+                                          <span className="block text-[10px] not-italic text-amber-600/70 mt-1 uppercase font-bold">
+                                              - Super Admin Note
+                                          </span>
+                                      </p>
+                                  </div>
+                              )}
                            </div>
                            <div className="ml-auto flex items-center gap-4">
                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap hidden sm:block">
                                   {log.timestamp}
                                </div>
+                               {currentUser?.role === 'SUPER_ADMIN' && (
+                                   <button 
+                                       onClick={() => setNoteModalState({ isOpen: true, activity: log })}
+                                       className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                       title="Add Note"
+                                   >
+                                       <MessageSquarePlus size={18} />
+                                   </button>
+                               )}
                                {log.meta && (
                                    <button 
                                      onClick={() => setReceiptState({ isOpen: true, data: log.meta })}
@@ -693,8 +824,19 @@ function App() {
             <UserManagement 
                 users={users} 
                 onAddUser={handleAddUser} 
+                onUpdateUser={handleUpdateUser}
                 onDeleteUser={handleDeleteUser} 
                 currentUser={currentUser!} 
+                isSystemLocked={isSystemLocked}
+                onToggleSystemLock={handleToggleSystemLock}
+            />
+        );
+      case 'Messages':
+        return (
+            <Messages 
+                currentUser={currentUser!} 
+                users={users} 
+                onMessageRead={() => setUnreadMessageCount(prev => Math.max(0, prev - 1))}
             />
         );
       case 'Dashboard':
@@ -712,10 +854,21 @@ function App() {
               </div>
               <div className="col-span-1 lg:col-span-4 space-y-6 lg:space-y-8">
                 <QuickActions 
-                  onAction={(type) => setModalState({ isOpen: true, type })} 
+                  onAction={(type) => {
+                    if (type === 'SALE' && (currentUser?.role === 'CASHIER' || currentUser?.role === 'ADMIN') && currentUser?.canMakeSales === false) {
+                        alert("Access Denied: You are not authorized to make sales. Please contact the Super Admin.");
+                        return;
+                    }
+                    setModalState({ isOpen: true, type });
+                  }} 
                   userRole={currentUser?.role}
+                  canMakeSales={currentUser?.canMakeSales}
                 />
-                <RecentActivity activities={visibleActivities} />
+                <RecentActivity 
+                    activities={visibleActivities} 
+                    currentUser={currentUser!}
+                    onAddNote={(activity) => setNoteModalState({ isOpen: true, activity })}
+                />
               </div>
             </div>
           </div>
@@ -735,6 +888,36 @@ function App() {
     );
   }
 
+  // System Lock Screen
+  if (isSystemLocked && currentUser.role !== 'SUPER_ADMIN') {
+    return (
+        <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl max-w-md w-full text-center space-y-6 border border-slate-200 dark:border-slate-700">
+                <div className="size-20 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-500 rounded-full flex items-center justify-center mx-auto">
+                    <AlertTriangle size={40} />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">System Locked</h1>
+                    <p className="text-slate-500 dark:text-slate-400">
+                        The system is currently under maintenance or locked by the administrator. Access is temporarily restricted.
+                    </p>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <p className="text-xs font-mono text-slate-400">
+                        Please contact the Super Admin for assistance.
+                    </p>
+                </div>
+                <button 
+                    onClick={handleLogout}
+                    className="w-full py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-colors"
+                >
+                    Logout
+                </button>
+            </div>
+        </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
@@ -742,11 +925,18 @@ function App() {
         onTabChange={(tab) => {
           setActiveTab(tab);
           setIsMobileMenuOpen(false);
+          // If switching to Messages, refresh unread count (optimistic update)
+          if (tab === 'Messages') {
+             // We'll let the Messages component handle marking as read and updating the DB,
+             // but we can trigger a refresh or just let the next loadData cycle handle it.
+             // For now, just switching tabs.
+          }
         }} 
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         onLogout={handleLogout}
         currentUser={currentUser}
+        unreadMessageCount={unreadMessageCount}
       />
       
       <main className="flex-1 flex flex-col overflow-hidden bg-background-light dark:bg-background-dark relative">
@@ -799,6 +989,14 @@ function App() {
         isOpen={deliveryPreviewState.isOpen}
         data={deliveryPreviewState.data}
         onClose={() => setDeliveryPreviewState({ isOpen: false, data: null })}
+      />
+
+      {/* Note Modal */}
+      <NoteModal
+        isOpen={noteModalState.isOpen}
+        onClose={() => setNoteModalState({ isOpen: false, activity: null })}
+        onSubmit={handleSaveNote}
+        currentNote={noteModalState.activity?.adminNote}
       />
     </div>
   );

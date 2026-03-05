@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
-import { Trash2, UserPlus, Shield, User as UserIcon, ShieldAlert } from 'lucide-react';
+import { Trash2, UserPlus, Shield, User as UserIcon, ShieldAlert, ToggleLeft, ToggleRight, Lock, Unlock } from 'lucide-react';
 
 interface UserManagementProps {
   users: User[];
   onAddUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
+  onUpdateUser: (user: User) => void;
   onDeleteUser: (id: string) => void;
   currentUser: User;
+  isSystemLocked: boolean;
+  onToggleSystemLock: () => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onDeleteUser, currentUser }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser, isSystemLocked, onToggleSystemLock }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newUser, setNewUser] = useState({
     username: '',
@@ -64,13 +67,29 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onDel
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">User Management</h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">Manage system access and roles</p>
         </div>
-        <button 
-            onClick={() => setIsAdding(!isAdding)}
-            className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
-        >
-            <UserPlus size={18} />
-            Add New User
-        </button>
+        
+        <div className="flex items-center gap-4">
+            <button
+                onClick={onToggleSystemLock}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shadow-lg ${
+                    isSystemLocked 
+                    ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-500/20' 
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/20'
+                }`}
+                title={isSystemLocked ? "Unlock System Access" : "Lock System Access for All Users"}
+            >
+                {isSystemLocked ? <Unlock size={18} /> : <Lock size={18} />}
+                {isSystemLocked ? 'Unlock System' : 'Lock System'}
+            </button>
+
+            <button 
+                onClick={() => setIsAdding(!isAdding)}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+            >
+                <UserPlus size={18} />
+                Add New User
+            </button>
+        </div>
       </div>
 
       {isAdding && (
@@ -149,6 +168,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onDel
                 <tr>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase">User</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase">Role</th>
+                    <th className="p-4 text-xs font-bold text-slate-500 uppercase">Permissions</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase">Created</th>
                     <th className="p-4 text-xs font-bold text-slate-500 uppercase text-right">Actions</th>
                 </tr>
@@ -162,6 +182,24 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onDel
                         </td>
                         <td className="p-4">
                             {getRoleBadge(user.role)}
+                        </td>
+                        <td className="p-4">
+                            {user.role !== 'SUPER_ADMIN' ? (
+                                <button
+                                    onClick={() => onUpdateUser({ ...user, canMakeSales: user.canMakeSales === false })}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                        user.canMakeSales !== false 
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
+                                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                    }`}
+                                    title={user.canMakeSales !== false ? "Click to Restrict Sales" : "Click to Allow Sales"}
+                                >
+                                    {user.canMakeSales !== false ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                    {user.canMakeSales !== false ? 'Sales Allowed' : 'Sales Restricted'}
+                                </button>
+                            ) : (
+                                <span className="text-xs text-slate-400 italic">Full Access</span>
+                            )}
                         </td>
                         <td className="p-4 text-sm text-slate-500">
                             {new Date(user.createdAt).toLocaleDateString()}

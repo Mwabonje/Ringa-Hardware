@@ -9,6 +9,24 @@ export interface User {
   role: Role;
   fullName: string;
   createdAt: string;
+  canMakeSales?: boolean;
+}
+
+export interface SystemSettings {
+  id: string;
+  isSystemLocked: boolean;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string; // 'ADMIN' for all admins, or specific user ID
+  recipientName: string;
+  subject: string;
+  body: string;
+  timestamp: string;
+  isRead: boolean;
 }
 
 export interface InventoryItem {
@@ -33,6 +51,7 @@ export interface ActivityItem {
   meta?: any;
   performedBy?: string;
   userRole?: Role;
+  adminNote?: string;
 }
 
 export interface Metric {
