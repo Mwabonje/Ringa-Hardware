@@ -1,11 +1,15 @@
 import React from 'react';
 import { Zap, Truck, RotateCcw, ShoppingCart, ChevronRight, ClipboardList } from 'lucide-react';
+import { Role } from '../types';
 
 interface QuickActionsProps {
   onAction: (type: 'DELIVERY' | 'SALE' | 'RETURN' | 'LPO') => void;
+  userRole?: Role;
 }
 
-const QuickActions: React.FC<QuickActionsProps> = ({ onAction }) => {
+const QuickActions: React.FC<QuickActionsProps> = ({ onAction, userRole }) => {
+  const isCashier = userRole === 'CASHIER';
+
   return (
     <section>
       <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-white">
@@ -27,6 +31,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onAction }) => {
           <ChevronRight className="ml-auto text-blue-200" size={20} />
         </button>
 
+        {!isCashier && (
         <button 
           onClick={() => onAction('LPO')}
           className="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-500 dark:hover:border-purple-500/50 transition-all group shadow-sm text-left"
@@ -40,7 +45,9 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onAction }) => {
           </div>
           <ChevronRight className="ml-auto text-slate-400" size={20} />
         </button>
+        )}
 
+        {!isCashier && (
         <button 
           onClick={() => onAction('DELIVERY')}
           className="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500/50 transition-all group shadow-sm text-left"
@@ -54,6 +61,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onAction }) => {
           </div>
           <ChevronRight className="ml-auto text-slate-400" size={20} />
         </button>
+        )}
 
         <button 
           onClick={() => onAction('RETURN')}

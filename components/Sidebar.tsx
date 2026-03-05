@@ -35,8 +35,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
     { id: 'Reports', icon: BarChart3, label: 'Reports' },
   ];
 
+  // Filter items based on role
+  let filteredNavItems = navItems;
+  
+  if (currentUser.role === 'CASHIER') {
+    filteredNavItems = navItems.filter(item => 
+      ['Dashboard', 'Inventory', 'Returns'].includes(item.id)
+    );
+  }
+
   if (currentUser.role === 'SUPER_ADMIN') {
-    navItems.push({ id: 'Users', icon: Users, label: 'User Management' });
+    filteredNavItems.push({ id: 'Users', icon: Users, label: 'User Management' });
   }
 
   return (
@@ -83,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-2 overflow-y-auto">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button

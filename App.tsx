@@ -507,7 +507,12 @@ function App() {
         // Super Admin sees everything
         if (currentUser?.role === 'SUPER_ADMIN') return true;
         
-        // Others don't see Super Admin activities
+        // Cashier sees only their own activities
+        if (currentUser?.role === 'CASHIER') {
+            return activity.performedBy === currentUser.username;
+        }
+        
+        // Others (Admin) don't see Super Admin activities
         if (activity.userRole === 'SUPER_ADMIN') return false;
         
         return true;
@@ -708,6 +713,7 @@ function App() {
               <div className="col-span-1 lg:col-span-4 space-y-6 lg:space-y-8">
                 <QuickActions 
                   onAction={(type) => setModalState({ isOpen: true, type })} 
+                  userRole={currentUser?.role}
                 />
                 <RecentActivity activities={visibleActivities} />
               </div>

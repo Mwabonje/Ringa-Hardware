@@ -1,14 +1,15 @@
 import React from 'react';
 import { DollarSign, AlertTriangle, Truck, ShoppingBag, TrendingUp, PieChart } from 'lucide-react';
-import { InventoryItem, DailyStats, LPO } from '../types';
+import { InventoryItem, DailyStats, LPO, Role } from '../types';
 
 interface StatCardsProps {
   inventory: InventoryItem[];
   stats: DailyStats;
   lpos: LPO[];
+  userRole?: Role;
 }
 
-const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos }) => {
+const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos, userRole }) => {
   // Use buyingPrice for Inventory Valuation (Cost Basis)
   const totalValue = inventory.reduce((acc, item) => acc + (item.stockLevel * item.buyingPrice), 0);
   const lowStockCount = inventory.filter(item => item.status === 'Low Stock' || item.status === 'Out of Stock').length;
@@ -43,9 +44,12 @@ const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos }) => {
     maximumFractionDigits: 0,
   }).format(val);
 
+  const isCashier = userRole === 'CASHIER';
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
-      {/* Total Inventory Value */}
+      {/* Total Inventory Value - Hide for Cashier */}
+      {!isCashier && (
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Total Inventory Value</p>
@@ -61,8 +65,9 @@ const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos }) => {
           BASED ON COST PRICE
         </div>
       </div>
+      )}
 
-      {/* Today's Sales */}
+      {/* Today's Sales - Visible to All */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Today's Revenue</p>
@@ -78,7 +83,8 @@ const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos }) => {
         </div>
       </div>
 
-      {/* Today's Profit */}
+      {/* Today's Profit - Hide for Cashier */}
+      {!isCashier && (
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start">
           <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Today's Profit</p>
@@ -93,9 +99,10 @@ const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos }) => {
           NET INCOME (EST)
         </div>
       </div>
+      )}
 
-      {/* Pending Deliveries - Conditional */}
-      {pendingCount > 0 && (
+      {/* Pending Deliveries - Conditional & Hide for Cashier */}
+      {!isCashier && pendingCount > 0 && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow animate-in zoom-in-95 duration-300">
             <div className="flex justify-between items-start">
             <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Pending Deliveries</p>
@@ -112,7 +119,7 @@ const StatCards: React.FC<StatCardsProps> = ({ inventory, stats, lpos }) => {
         </div>
       )}
 
-      {/* Low Stock Items */}
+      {/* Low Stock Items - Visible to All */}
       <div className={`bg-white dark:bg-slate-900 p-6 rounded-xl border flex flex-col gap-2 shadow-sm ring-1 relative overflow-hidden transition-all ${lowStockCount > 0 ? 'border-safety-orange/30 ring-safety-orange/10' : 'border-slate-200 dark:border-slate-800 ring-transparent'}`}>
         <div className="absolute top-0 right-0 p-6 opacity-5">
            <AlertTriangle size={64} />
