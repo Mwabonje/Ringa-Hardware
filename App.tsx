@@ -14,14 +14,15 @@ import ReturnPreviewModal from './components/ReturnPreviewModal';
 import DeliveryPreviewModal from './components/DeliveryPreviewModal';
 import Login from './components/Login';
 import Reports from './components/Reports';
-import { InventoryItem, ActivityItem, ReceiptData, ReceiptItem, DailyStats, LPO } from './types';
+import UserManagement from './components/UserManagement';
+import { InventoryItem, ActivityItem, ReceiptData, ReceiptItem, DailyStats, LPO, User } from './types';
 import * as DB from './db';
 
 function App() {
   // App State - Initialize auth from localStorage
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const savedAuth = localStorage.getItem('ringa_auth');
-    return savedAuth === 'true';
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const savedUser = localStorage.getItem('ringa_user');
+    return savedUser ? JSON.parse(savedUser) : null;
   });
 
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -36,6 +37,7 @@ function App() {
     profit: 0,
     transactionCount: 0
   });
+  const [users, setUsers] = useState<User[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isLowStockFilterActive, setIsLowStockFilterActive] = useState(false);
@@ -72,21 +74,66 @@ function App() {
   }>({ isOpen: false, data: null });
 
   // --- Auth Handlers ---
-  const handleLogin = () => {
-    localStorage.setItem('ringa_auth', 'true');
-    setIsAuthenticated(true);
+  const handleLogin = (user: User) => {
+    localStorage.setItem('ringa_user', JSON.stringify(user));
+    setCurrentUser(user);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('ringa_auth');
-    setIsAuthenticated(false);
+    localStorage.removeItem('ringa_user');
+    setCurrentUser(null);
     // Resetting local state is optional since we unmount, but good practice
     setActiveTab('Dashboard');
   };
 
+  // --- User Management Handlers ---
+  const handleAddUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {
+    const newUser: User = {
+      ...userData,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    await DB.addUser(newUser);
+    setUsers(prev => [...prev, newUser]);
+    
+    // Log activity
+    const activity: ActivityItem = {
+      id: Date.now().toString(),
+      title: 'User Added',
+      description: `New user ${newUser.username} (${newUser.role}) added by ${currentUser?.username}`,
+      timestamp: new Date().toISOString(),
+      type: 'LOG',
+      performedBy: currentUser?.username,
+      userRole: currentUser?.role
+    };
+    await DB.addActivity(activity);
+    setActivities(prev => [activity, ...prev]);
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    const userToDelete = users.find(u => u.id === id);
+    if (userToDelete) {
+        await DB.deleteUser(id);
+        setUsers(prev => prev.filter(u => u.id !== id));
+
+        // Log activity
+        const activity: ActivityItem = {
+            id: Date.now().toString(),
+            title: 'User Deleted',
+            description: `User ${userToDelete.username} deleted by ${currentUser?.username}`,
+            timestamp: new Date().toISOString(),
+            type: 'LOG',
+            performedBy: currentUser?.username,
+            userRole: currentUser?.role
+        };
+        await DB.addActivity(activity);
+        setActivities(prev => [activity, ...prev]);
+    }
+  };
+
   // --- Data Loading ---
   useEffect(() => {
-    if (isAuthenticated) {
+    if (currentUser) {
         setIsLoading(true);
         const loadData = async () => {
             try {
@@ -95,6 +142,7 @@ function App() {
                 setActivities(data.activities);
                 setLpos(data.lpos);
                 setDailyStats(data.stats);
+                setUsers(data.users);
             } catch (error) {
                 console.error("Failed to load data from DB", error);
             } finally {
@@ -103,7 +151,7 @@ function App() {
         };
         loadData();
     }
-  }, [isAuthenticated]);
+  }, [currentUser]);
 
   // Filter Logic Helper
   const getFilteredData = (categoryFilter?: string) => {
@@ -143,6 +191,8 @@ function App() {
             description: `Order #${lpo.lpoNumber} • ${lpo.items.length} items added to stock`,
             timestamp: 'Just now',
             type: 'LOG',
+            performedBy: currentUser?.username,
+            userRole: currentUser?.role,
             meta: {
                 lpoId: lpo.id,
                 lpoNumber: lpo.lpoNumber,
@@ -251,7 +301,9 @@ function App() {
             title: `New LPO Created`,
             description: `Order #${newLPO.lpoNumber} for ${meta.supplierName}`,
             timestamp: 'Just now',
-            type: 'LPO'
+            type: 'LPO',
+            performedBy: currentUser?.username,
+            userRole: currentUser?.role
         };
         await DB.addActivity(lpoActivity);
         setActivities([lpoActivity, ...activities]);
@@ -432,7 +484,9 @@ function App() {
       description: activityDescription,
       timestamp: 'Just now',
       type: activityType,
-      meta: activityMeta
+      meta: activityMeta,
+      performedBy: currentUser?.username,
+      userRole: currentUser?.role
     };
     
     await DB.addActivity(newActivity);
@@ -448,6 +502,17 @@ function App() {
   };
 
   const renderContent = () => {
+    // Filter activities based on user role
+    const visibleActivities = activities.filter(activity => {
+        // Super Admin sees everything
+        if (currentUser?.role === 'SUPER_ADMIN') return true;
+        
+        // Others don't see Super Admin activities
+        if (activity.userRole === 'SUPER_ADMIN') return false;
+        
+        return true;
+    });
+
     switch (activeTab) {
       case 'Inventory':
         return (
@@ -463,7 +528,7 @@ function App() {
           </div>
         );
       case 'Sales':
-        const salesLogs = activities.filter(a => a.type === 'SALE');
+        const salesLogs = visibleActivities.filter(a => a.type === 'SALE');
         return (
           <div className="space-y-6 animate-in fade-in duration-500">
              <div className="flex items-center justify-between">
@@ -515,7 +580,7 @@ function App() {
             </div>
         );
       case 'Deliveries':
-         const deliveryLogs = activities.filter(a => a.type === 'LOG');
+         const deliveryLogs = visibleActivities.filter(a => a.type === 'LOG');
          return (
             <div className="space-y-6 animate-in fade-in duration-500">
                <h2 className="text-xl sm:text-2xl font-bold dark:text-white">Incoming Deliveries</h2>
@@ -561,7 +626,7 @@ function App() {
             </div>
          );
       case 'Returns':
-         const returnLogs = activities.filter(a => a.type === 'RETURN');
+         const returnLogs = visibleActivities.filter(a => a.type === 'RETURN');
          return (
             <div className="space-y-6 animate-in fade-in duration-500">
                <h2 className="text-xl sm:text-2xl font-bold dark:text-white flex items-center gap-2">
@@ -612,11 +677,20 @@ function App() {
       case 'Reports':
         return (
            <Reports 
-              activities={activities} 
+              activities={visibleActivities} 
               inventory={inventory} 
               lpos={lpos} 
               stats={dailyStats} 
            />
+        );
+      case 'Users':
+        return (
+            <UserManagement 
+                users={users} 
+                onAddUser={handleAddUser} 
+                onDeleteUser={handleDeleteUser} 
+                currentUser={currentUser!} 
+            />
         );
       case 'Dashboard':
       default:
@@ -635,7 +709,7 @@ function App() {
                 <QuickActions 
                   onAction={(type) => setModalState({ isOpen: true, type })} 
                 />
-                <RecentActivity activities={activities} />
+                <RecentActivity activities={visibleActivities} />
               </div>
             </div>
           </div>
@@ -643,7 +717,7 @@ function App() {
     }
   };
 
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
 
@@ -666,6 +740,7 @@ function App() {
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         onLogout={handleLogout}
+        currentUser={currentUser}
       />
       
       <main className="flex-1 flex flex-col overflow-hidden bg-background-light dark:bg-background-dark relative">

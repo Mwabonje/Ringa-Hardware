@@ -1,5 +1,5 @@
 import { openDB, DBSchema } from 'idb';
-import { InventoryItem, ActivityItem, LPO, DailyStats } from './types';
+import { InventoryItem, ActivityItem, LPO, DailyStats, User } from './types';
 import { INVENTORY_DATA } from './constants';
 
 interface RingaDB extends DBSchema {
@@ -19,10 +19,15 @@ interface RingaDB extends DBSchema {
     key: string;
     value: DailyStats & { id: string };
   };
+  users: {
+    key: string;
+    value: User;
+    indexes: { 'by-username': string };
+  };
 }
 
-// Changed to v2 to ensure a fresh start for the user
-const DB_NAME = 'ringa-hardware-v2';
+// Changed to v3 to ensure schema update for users
+const DB_NAME = 'ringa-hardware-v3';
 const DB_VERSION = 1;
 
 export const initDB = async () => {
@@ -39,6 +44,10 @@ export const initDB = async () => {
       }
       if (!db.objectStoreNames.contains('stats')) {
         db.createObjectStore('stats', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('users')) {
+        const userStore = db.createObjectStore('users', { keyPath: 'id' });
+        userStore.createIndex('by-username', 'username', { unique: true });
       }
     },
   });
@@ -61,6 +70,19 @@ export const initDB = async () => {
         revenue: 0,
         profit: 0,
         transactionCount: 0
+    });
+  }
+
+  // Seed Super Admin if empty
+  const userCount = await db.count('users');
+  if (userCount === 0) {
+    await db.put('users', {
+      id: '1',
+      username: 'admin',
+      passwordHash: 'admin', // Plain text for prototype
+      role: 'SUPER_ADMIN',
+      fullName: 'Super Administrator',
+      createdAt: new Date().toISOString()
     });
   }
 
@@ -93,15 +115,26 @@ export const getStats = async () => {
   return stats || { id: 'daily', revenue: 0, profit: 0, transactionCount: 0 };
 };
 
+export const getUsers = async () => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.getAll('users');
+};
+
+export const getUserByUsername = async (username: string) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.getFromIndex('users', 'by-username', username);
+};
+
 export const getAllData = async () => {
     await initDB();
-    const [inventory, activities, lpos, stats] = await Promise.all([
+    const [inventory, activities, lpos, stats, users] = await Promise.all([
         getInventory(),
         getActivities(),
         getLPOs(),
-        getStats()
+        getStats(),
+        getUsers()
     ]);
-    return { inventory, activities, lpos, stats };
+    return { inventory, activities, lpos, stats, users };
 };
 
 // --- CRUD OPERATIONS ---
@@ -134,6 +167,21 @@ export const updateLPO = async (lpo: LPO) => {
 export const updateStats = async (stats: DailyStats) => {
   const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
   return db.put('stats', { ...stats, id: 'daily' });
+};
+
+export const addUser = async (user: User) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.add('users', user);
+};
+
+export const updateUser = async (user: User) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.put('users', user);
+};
+
+export const deleteUser = async (id: string) => {
+  const db = await openDB<RingaDB>(DB_NAME, DB_VERSION);
+  return db.delete('users', id);
 };
 
 // Batch update for inventory

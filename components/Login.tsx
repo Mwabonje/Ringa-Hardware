@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { getUserByUsername } from '../db';
+import { User as UserType } from '../types';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (user: UserType) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -12,20 +14,36 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simulate network delay for realistic feel
-    setTimeout(() => {
-      if (username.toLowerCase() === 'admin' && password === 'admin') {
-        onLogin();
-      } else {
-        setError('Invalid username or password');
+    try {
+        // Simulate network delay for realistic feel
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        const normalizedUsername = username.trim().toLowerCase();
+        
+        // Try normalized username first
+        let user = await getUserByUsername(normalizedUsername);
+
+        // Fallback: try exact username if normalized fails (for legacy users)
+        if (!user && normalizedUsername !== username.trim()) {
+             user = await getUserByUsername(username.trim());
+        }
+
+        if (user && user.passwordHash === password) {
+            onLogin(user);
+        } else {
+            setError('Invalid username or password');
+            setIsLoading(false);
+        }
+    } catch (err) {
+        console.error('Login error:', err);
+        setError('An error occurred during login');
         setIsLoading(false);
-      }
-    }, 800);
+    }
   };
 
   return (

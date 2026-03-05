@@ -1,5 +1,16 @@
 import React from 'react';
 
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'CASHIER';
+
+export interface User {
+  id: string;
+  username: string;
+  passwordHash: string; // Storing plain text for prototype, but named hash for intent
+  role: Role;
+  fullName: string;
+  createdAt: string;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -20,6 +31,8 @@ export interface ActivityItem {
   timestamp: string;
   type: 'LOG' | 'SALE' | 'ALERT' | 'RETURN' | 'LPO';
   meta?: any;
+  performedBy?: string;
+  userRole?: Role;
 }
 
 export interface Metric {

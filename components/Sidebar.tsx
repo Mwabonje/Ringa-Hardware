@@ -10,8 +10,10 @@ import {
   ClipboardList,
   X,
   RotateCcw,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
+import { User } from '../types';
 
 interface SidebarProps {
   activeTab: string;
@@ -19,9 +21,10 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
+  currentUser: User;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClose, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClose, onLogout, currentUser }) => {
   const navItems = [
     { id: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'Inventory', icon: Package, label: 'Inventory' },
@@ -31,6 +34,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
     { id: 'Returns', icon: RotateCcw, label: 'Customer Returns' },
     { id: 'Reports', icon: BarChart3, label: 'Reports' },
   ];
+
+  if (currentUser.role === 'SUPER_ADMIN') {
+    navItems.push({ id: 'Users', icon: Users, label: 'User Management' });
+  }
 
   return (
     <>
@@ -101,8 +108,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, isOpen, onClo
               <UserCircle size={20} />
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-semibold text-white truncate">Admin User</p>
-              <p className="text-[10px] text-slate-500 truncate">Store #402</p>
+              <p className="text-xs font-semibold text-white truncate">{currentUser.fullName}</p>
+              <p className="text-[10px] text-slate-500 truncate">{currentUser.role.replace('_', ' ')}</p>
             </div>
             <button className="ml-auto text-slate-400 hover:text-white">
               <Settings size={16} />
