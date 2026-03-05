@@ -107,8 +107,16 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ data, filterActive, onF
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-sm text-slate-900 dark:text-slate-100">{item.name}</div>
-                        <div className="text-[10px] text-slate-500">ID: {item.sku}</div>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <div className="font-medium text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                              {item.name}
+                              {/* Mobile Status Indicator */}
+                              <span className={`sm:hidden size-2 rounded-full ${statusColor.replace('text-', 'bg-')}`} title={item.status}></span>
+                            </div>
+                            <div className="text-[10px] text-slate-500">ID: {item.sku}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${categoryColor}`}>
@@ -149,7 +157,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({ data, filterActive, onF
         
         {/* Pagination Footer */}
         {data.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
               Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, data.length)} of {data.length} items
             </p>

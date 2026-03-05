@@ -82,7 +82,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser, users, onMessageRead }
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col md:flex-row gap-6 animate-in fade-in duration-500">
+    <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] flex flex-col md:flex-row gap-6 animate-in fade-in duration-500">
       {/* Sidebar / Message List */}
       <div className={`w-full md:w-1/3 lg:w-1/4 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden ${selectedMessage ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-slate-200 dark:border-slate-800">
@@ -163,9 +163,9 @@ const Messages: React.FC<MessagesProps> = ({ currentUser, users, onMessageRead }
       <div className={`flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col ${!selectedMessage ? 'hidden md:flex' : 'flex'}`}>
         {selectedMessage ? (
           <>
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-start">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{selectedMessage.subject}</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">{selectedMessage.subject}</h2>
                 <div className="flex items-center gap-3 text-sm text-slate-500">
                   <div className="flex items-center gap-1">
                     <UserIcon size={16} />

@@ -525,7 +525,7 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
                         </div>
 
                         {/* Second Row: Price & Quantity */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                              <div className="flex-1">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase mb-0.5 block">
                                     {(type === 'LPO' || type === 'DELIVERY') ? 'Unit Cost (Ksh)' : 'Price (Ksh)'}
@@ -555,7 +555,7 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
                                 </div>
                             )}
 
-                            <div className="w-24">
+                            <div className="w-full sm:w-24">
                                 <label className="text-[10px] text-slate-400 font-bold uppercase mb-0.5 block">Qty</label>
                                 <input 
                                     type="number" 
@@ -569,7 +569,7 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
 
                         {/* Third Row: Extra fields for New Items */}
                         {cartItem.isNew && (
-                            <div className="grid grid-cols-3 gap-2 pt-1 animate-in slide-in-from-top-2 duration-200">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 animate-in slide-in-from-top-2 duration-200">
                                 <div>
                                     <label className="text-[10px] text-blue-400 font-bold uppercase mb-0.5 block">Category</label>
                                     <select 
