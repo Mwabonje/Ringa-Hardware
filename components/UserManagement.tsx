@@ -61,17 +61,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
         <div>
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">User Management</h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm">Manage system access and roles</p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
             <button
                 onClick={onToggleSystemLock}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shadow-lg ${
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold transition-all shadow-lg w-full sm:w-auto ${
                     isSystemLocked 
                     ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-500/20' 
                     : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/20'
@@ -84,7 +84,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
 
             <button 
                 onClick={() => setIsAdding(!isAdding)}
-                className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"
             >
                 <UserPlus size={18} />
                 Add New User
@@ -162,7 +162,56 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
         </div>
       )}
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      {/* Mobile Card View */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {users.map(user => (
+            <div key={user.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <div className="font-bold text-slate-900 dark:text-white text-lg">{user.fullName}</div>
+                        <div className="text-sm text-slate-500">@{user.username}</div>
+                    </div>
+                    {user.id !== currentUser.id && (
+                        <button 
+                            onClick={() => onDeleteUser(user.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    )}
+                </div>
+                
+                <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role</span>
+                        {getRoleBadge(user.role)}
+                    </div>
+                    
+                    <div className="flex flex-col gap-1 items-end">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Permissions</span>
+                        {user.role !== 'SUPER_ADMIN' ? (
+                            <button
+                                onClick={() => onUpdateUser({ ...user, canMakeSales: user.canMakeSales === false })}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                    user.canMakeSales !== false 
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
+                                    : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                }`}
+                            >
+                                {user.canMakeSales !== false ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                {user.canMakeSales !== false ? 'Sales Allowed' : 'Restricted'}
+                            </button>
+                        ) : (
+                            <span className="text-xs text-slate-400 italic">Full Access</span>
+                        )}
+                    </div>
+                </div>
+            </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                 <tr>
