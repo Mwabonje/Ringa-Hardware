@@ -39,6 +39,19 @@ interface RingaDB extends DBSchema {
 const DB_NAME = 'ringa-hardware-v3';
 const DB_VERSION = 3;
 
+/**
+ * OWASP Best Practice: Password Hashing
+ * Using SHA-256 via Web Crypto API to avoid storing plaintext passwords locally.
+ * In a real production setup, this would be BCrypt/Argon2 on a backend API.
+ */
+export const hashPassword = async (password: string): Promise<string> => {
+  const msgBuffer = new TextEncoder().encode(password);
+  // Hash the password securely using SHA-256
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 export const initDB = async () => {
   const db = await openDB<RingaDB>(DB_NAME, DB_VERSION, {
     upgrade(db) {
@@ -92,10 +105,11 @@ export const initDB = async () => {
   // Seed Super Admin if empty
   const userCount = await db.count('users');
   if (userCount === 0) {
+    const defaultAdminHash = await hashPassword('admin');
     await db.put('users', {
       id: '1',
       username: 'admin',
-      passwordHash: 'admin', // Plain text for prototype
+      passwordHash: defaultAdminHash, // OWASP: Password is now hashed
       role: 'SUPER_ADMIN',
       fullName: 'Super Administrator',
       createdAt: new Date().toISOString()

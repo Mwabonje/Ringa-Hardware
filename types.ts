@@ -5,7 +5,7 @@ export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'CASHIER';
 export interface User {
   id: string;
   username: string;
-  passwordHash: string; // Storing plain text for prototype, but named hash for intent
+  passwordHash: string; // OWASP Secure: Hashed via SHA-256 Web Crypto API. Never expose raw passwords.
   role: Role;
   fullName: string;
   createdAt: string;

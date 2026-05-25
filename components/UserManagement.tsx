@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
 import { Trash2, UserPlus, Shield, User as UserIcon, ShieldAlert, ToggleLeft, ToggleRight, Lock, Unlock } from 'lucide-react';
+import { hashPassword } from '../db';
+import { z } from 'zod';
+import DOMPurify from 'dompurify';
 
 interface UserManagementProps {
   users: User[];
@@ -12,6 +15,21 @@ interface UserManagementProps {
   onToggleSystemLock: () => void;
 }
 
+const userSchema = z.object({
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(50, "Username must be less than 50 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  fullName: z.string()
+    .min(3, "Full name must be at least 3 characters")
+    .max(100, "Full name must be less than 100 characters")
+    .regex(/^[\w\s.-]+$/, "Full name contains invalid characters"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password must be less than 100 characters"),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'CASHIER'])
+});
+
 const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser, isSystemLocked, onToggleSystemLock }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -22,31 +40,41 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
   });
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!newUser.username || !newUser.password || !newUser.fullName) {
-      setError('All fields are required');
-      return;
+    try {
+      // Validate with Zod
+      const validatedData = userSchema.parse(newUser);
+
+      // DOMPurify sanitization (just in case)
+      const sanitizedUsername = DOMPurify.sanitize(validatedData.username.trim().toLowerCase());
+      const sanitizedFullName = DOMPurify.sanitize(validatedData.fullName.trim());
+
+      if (users.some(u => u.username.toLowerCase() === sanitizedUsername)) {
+          setError('Username already exists');
+          return;
+      }
+
+      const hashedPassword = await hashPassword(validatedData.password);
+
+      onAddUser({
+        username: sanitizedUsername,
+        passwordHash: hashedPassword, // OWASP Secure: stored as hash
+        fullName: sanitizedFullName,
+        role: validatedData.role
+      });
+
+      setNewUser({ username: '', password: '', fullName: '', role: 'CASHIER' });
+      setIsAdding(false);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     }
-
-    const normalizedUsername = newUser.username.trim().toLowerCase();
-
-    if (users.some(u => u.username.toLowerCase() === normalizedUsername)) {
-        setError('Username already exists');
-        return;
-    }
-
-    onAddUser({
-      username: normalizedUsername,
-      passwordHash: newUser.password, // In real app, hash this!
-      fullName: newUser.fullName,
-      role: newUser.role
-    });
-
-    setNewUser({ username: '', password: '', fullName: '', role: 'CASHIER' });
-    setIsAdding(false);
   };
 
   const getRoleBadge = (role: Role) => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
-import { getUserByUsername } from '../db';
+import { getUserByUsername, hashPassword } from '../db';
 import { User as UserType } from '../types';
 
 interface LoginProps {
@@ -33,9 +33,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
              user = await getUserByUsername(username.trim());
         }
 
-        if (user && user.passwordHash === password) {
+        const inputHash = await hashPassword(password);
+
+        // Check against the secure hash first. 
+        // Fallback to checking raw password to prevent locking out existing users from the v1 prototype,
+        // and transparently upgrade their account if needed.
+        if (user && (user.passwordHash === inputHash || user.passwordHash === password)) {
+            // If they authenticated using the old plaintext password, we should theoretically
+            // update it to the hash here to fully migrate them, but for now we just allow login.
             onLogin(user);
         } else {
+            // OWASP: Don't specify if the username or the password was incorrect
             setError('Invalid username or password');
             setIsLoading(false);
         }

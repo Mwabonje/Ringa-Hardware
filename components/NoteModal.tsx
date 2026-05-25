@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
+import DOMPurify from 'dompurify';
+import { z } from 'zod';
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -8,14 +10,33 @@ interface NoteModalProps {
   currentNote?: string;
 }
 
+const noteSchema = z.string().max(1000, "Note is too long");
+
 const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSubmit, currentNote = '' }) => {
   const [note, setNote] = useState(currentNote);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setNote(currentNote);
+    setError('');
   }, [currentNote, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleSubmit = () => {
+    try {
+      const validatedNote = noteSchema.parse(note);
+      const sanitizedNote = DOMPurify.sanitize(validatedNote);
+      onSubmit(sanitizedNote);
+      onClose();
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError("Invalid note");
+      }
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -32,11 +53,12 @@ const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSubmit, curren
         <div className="p-6">
           <textarea
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => { setNote(e.target.value); setError(''); }}
             className="w-full h-32 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-none text-slate-900 dark:text-white placeholder:text-slate-400"
             placeholder="Enter note for admin..."
             autoFocus
           />
+          {error && <p className="text-red-500 text-xs mt-2 font-medium">{error}</p>}
           <div className="flex justify-end gap-3 mt-6">
             <button 
               onClick={onClose} 
@@ -45,7 +67,7 @@ const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, onSubmit, curren
               Cancel
             </button>
             <button 
-              onClick={() => { onSubmit(note); onClose(); }}
+              onClick={handleSubmit}
               className="px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-2"
             >
               <Save size={16} />

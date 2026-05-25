@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Message, User } from '../types';
 import * as DB from '../db';
 import { Mail, Send, Inbox, CheckCircle, Clock, User as UserIcon, Plus, X } from 'lucide-react';
+import { z } from 'zod';
+import DOMPurify from 'dompurify';
 
 interface MessagesProps {
   currentUser: User;
@@ -9,11 +11,18 @@ interface MessagesProps {
   onMessageRead?: () => void;
 }
 
+const messageSchema = z.object({
+  recipientId: z.string().min(1, "Recipient is required"),
+  subject: z.string().min(1, "Subject is required").max(150, "Subject is too long"),
+  body: z.string().min(1, "Message body is required").max(5000, "Message body is too long")
+});
+
 const Messages: React.FC<MessagesProps> = ({ currentUser, users, onMessageRead }) => {
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox');
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isComposing, setIsComposing] = useState(false);
+  const [error, setError] = useState('');
   
   // Compose State
   const [recipientId, setRecipientId] = useState('');
@@ -36,38 +45,55 @@ const Messages: React.FC<MessagesProps> = ({ currentUser, users, onMessageRead }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipientId || !subject || !body) return;
-
-    let recipientName = 'Unknown';
-    if (recipientId === 'ADMIN') recipientName = 'All Admins';
-    else if (recipientId === 'ALL') recipientName = 'Everyone';
-    else {
-      const user = users.find(u => u.id === recipientId);
-      recipientName = user ? user.fullName : 'Unknown';
-    }
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      senderId: currentUser.id,
-      senderName: currentUser.fullName,
-      recipientId,
-      recipientName,
-      subject,
-      body,
-      timestamp: new Date().toISOString(),
-      isRead: false
-    };
-
-    await DB.sendMessage(newMessage);
-    setIsComposing(false);
-    setRecipientId('');
-    setSubject('');
-    setBody('');
+    setError('');
     
-    if (activeTab === 'sent') {
-      loadMessages();
-    } else {
-      setActiveTab('sent');
+    try {
+      const validatedData = messageSchema.parse({
+        recipientId,
+        subject,
+        body
+      });
+
+      const sanitizedSubject = DOMPurify.sanitize(validatedData.subject);
+      const sanitizedBody = DOMPurify.sanitize(validatedData.body);
+
+      let recipientName = 'Unknown';
+      if (validatedData.recipientId === 'ADMIN') recipientName = 'All Admins';
+      else if (validatedData.recipientId === 'ALL') recipientName = 'Everyone';
+      else {
+        const user = users.find(u => u.id === validatedData.recipientId);
+        recipientName = user ? user.fullName : 'Unknown';
+      }
+
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        senderId: currentUser.id,
+        senderName: currentUser.fullName,
+        recipientId: validatedData.recipientId,
+        recipientName,
+        subject: sanitizedSubject,
+        body: sanitizedBody,
+        timestamp: new Date().toISOString(),
+        isRead: false
+      };
+
+      await DB.sendMessage(newMessage);
+      setIsComposing(false);
+      setRecipientId('');
+      setSubject('');
+      setBody('');
+      
+      if (activeTab === 'sent') {
+        loadMessages();
+      } else {
+        setActiveTab('sent');
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     }
   };
 

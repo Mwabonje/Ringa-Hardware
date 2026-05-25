@@ -9,13 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dompurify": "^3.4.5",
     "idb": "8.0.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

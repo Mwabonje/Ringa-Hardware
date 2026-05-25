@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, FileText, User, Car, Clock, Eye, Layers, Package, Wrench, HardHat, CreditCard, Banknote, Smartphone, Plus, Trash2, Building2, Calendar, PackagePlus, ArrowLeft, Receipt, Percent, Tag } from 'lucide-react';
 import { InventoryItem, LPO } from '../types';
+import DOMPurify from 'dompurify';
 
 interface ActionModalProps {
   isOpen: boolean;
@@ -300,17 +301,20 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
     setError(null);
     
     // Validate fields
-    if (type === 'SALE' && paymentMethod === 'MPESA' && !mpesaCode.trim()) {
+    const safeMpesaCode = DOMPurify.sanitize(mpesaCode.trim());
+    if (type === 'SALE' && paymentMethod === 'MPESA' && !safeMpesaCode) {
         setError("Please enter the M-Pesa transaction code.");
         return; 
     }
     
-    if (type === 'LPO' && !supplierName.trim()) {
+    const safeSupplierName = DOMPurify.sanitize(supplierName.trim());
+    if (type === 'LPO' && !safeSupplierName) {
         setError("Please enter a Supplier Name");
         return;
     }
 
-    if (type === 'DELIVERY' && !driverName.trim()) {
+    const safeDriverName = DOMPurify.sanitize(driverName.trim());
+    if (type === 'DELIVERY' && !safeDriverName) {
         setError("Please enter the Driver Name");
         return;
     }
@@ -318,7 +322,9 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
     // Validate new items
     for (const item of cartItems) {
         if (item.isNew) {
-            if (!item.newItemData?.name.trim()) {
+            item.newItemData.name = DOMPurify.sanitize(item.newItemData?.name.trim() || '');
+            item.newItemData.unit = DOMPurify.sanitize(item.newItemData?.unit.trim() || '');
+            if (!item.newItemData.name) {
                 setError("Please enter a name for the new item.");
                 return;
             }
@@ -341,7 +347,14 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
         return;
     }
 
-    let submissionNotes = notes;
+    const safeNotes = DOMPurify.sanitize(notes.trim());
+    const safeCustomerName = DOMPurify.sanitize(customerName.trim());
+    const safePoNumber = DOMPurify.sanitize(poNumber.trim());
+    const safeDeliveryNumber = DOMPurify.sanitize(deliveryNumber.trim());
+    const safePlateNumber = DOMPurify.sanitize(plateNumber.trim());
+    const safeExpectedDate = DOMPurify.sanitize(expectedDate.trim());
+
+    let submissionNotes = safeNotes;
     let metaData: any = {};
     const newItemsDefinitions = cartItems
         .filter(i => i.isNew && i.newItemData)
@@ -355,23 +368,23 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
       submissionNotes = getPreviewText();
       metaData = {
           newItemsDefinitions,
-          driverName,
-          vehiclePlate: plateNumber,
-          poNumber,
-          deliveryNumber,
+          driverName: safeDriverName,
+          vehiclePlate: safePlateNumber,
+          poNumber: safePoNumber,
+          deliveryNumber: safeDeliveryNumber,
           linkedLpoId: selectedLpoId,
-          supplierName
+          supplierName: safeSupplierName
       };
     } else if (type === 'SALE') {
-      const paymentDetails = paymentMethod === 'CASH' ? 'Cash' : `M-Pesa: ${mpesaCode}`;
+      const paymentDetails = paymentMethod === 'CASH' ? 'Cash' : `M-Pesa: ${safeMpesaCode}`;
       const discountInfo = discountAmount > 0 ? `With ${formatKsh(discountAmount)} discount. ` : '';
-      submissionNotes = `${customerName ? `Cust: ${customerName}` : 'Walk-in'} • ${paymentDetails} • Total: ${formatKsh(grandTotal)}`;
-      if (notes) submissionNotes += ` • ${notes}`;
+      submissionNotes = `${safeCustomerName ? `Cust: ${safeCustomerName}` : 'Walk-in'} • ${paymentDetails} • Total: ${formatKsh(grandTotal)}`;
+      if (safeNotes) submissionNotes += ` • ${safeNotes}`;
       
       metaData = {
-        customerName,
+        customerName: safeCustomerName,
         paymentMethod,
-        mpesaCode,
+        mpesaCode: safeMpesaCode,
         totalPrice: grandTotal,
         subtotal: subtotal,
         discount: discountAmount
@@ -379,8 +392,8 @@ const ActionModal: React.FC<ActionModalProps> = ({ isOpen, onClose, onSubmit, ty
     } else if (type === 'LPO') {
       submissionNotes = getPreviewText();
       metaData = {
-        supplierName,
-        expectedDate,
+        supplierName: safeSupplierName,
+        expectedDate: safeExpectedDate,
         totalExpectedCost: grandTotal,
         newItemsDefinitions: newItemsDefinitions
       };
